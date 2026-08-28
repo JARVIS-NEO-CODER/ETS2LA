@@ -41,6 +41,11 @@ public class GameHandler
         var traffic = TrafficProvider.Current;
         var parkedVehicles = ParkedVehiclesProvider.Current;
 
+        // EC examiner camera prototype. It consumes the same Convoy vehicle
+        // stream as ETS2LA and computes a follow-camera target at 60 Hz.
+        var ecExaminerCamera = ECExaminerCamera.Current;
+        ecExaminerCamera.Start();
+
         // Spawn the game output handler as well.
         var output = GameOutput.Current;
     }
