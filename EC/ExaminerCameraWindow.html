@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><title>EC Examiner Camera</title><style>body{font:14px system-ui;background:#111;color:#eee;margin:0;padding:16px}button,select{padding:9px;margin:4px;background:#222;color:#eee;border:1px solid #555;border-radius:6px}.row{display:flex;gap:8px;align-items:center}.status{margin:10px 0;color:#9f9}.players{display:flex;flex-direction:column;gap:6px}.player{display:flex;justify-content:space-between;align-items:center;padding:8px;background:#1b1b1b;border-radius:6px}</style></head>
+<body><h3>🎥 Caméra examinateur</h3><div class="status" id="status">Aucun joueur observé</div><div class="players" id="players"></div><button id="stop">Arrêter l'observation</button><script>
+const status=document.getElementById('status'); const players=document.getElementById('players');
+function render(list){players.replaceChildren(...list.map(p=>{const row=document.createElement('div');row.className='player';row.textContent=`Joueur #${p.id} · ${Math.round(p.speed*3.6)} km/h`;const b=document.createElement('button');b.textContent='Observer';b.onclick=()=>select(p.id);row.appendChild(b);return row;}));}
+function select(id){status.textContent=`Observation du joueur #${id}`;window.parent?.postMessage({type:'ec-select-vehicle',vehicleId:id},'*');}
+document.getElementById('stop').onclick=()=>{status.textContent='Aucun joueur observé';window.parent?.postMessage({type:'ec-stop'},'*');};
+window.addEventListener('message',e=>{if(e.data?.type==='ec-players')render(e.data.players||[]);});
+</script></body></html>
