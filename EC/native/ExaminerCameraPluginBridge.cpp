@@ -1,6 +1,5 @@
-// ETS2 1.60 native bridge prototype.
-// Drop this source into the ETS2LA/plugin build where CCore::tick() runs.
-// It consumes the EC shared-memory command and writes the active camera placement.
+// ETS2 1.60 examiner-camera native bridge.
+// Consumes the EC shared-memory command and applies placement_t to the active camera.
 
 #include <cstdint>
 #include <cstring>
@@ -26,10 +25,12 @@ struct Command {
 };
 #pragma pack(pop)
 
-static constexpr uint32_t MAGIC = 0x31434345; // ECC1
+static constexpr uint32_t MAGIC = 0x31434345;
 static HANDLE map = nullptr;
 static void* view = nullptr;
 static uint32_t last_sequence = 0;
+static prism::placement_t saved_placement{};
+static bool saved = false;
 
 static bool open_map() {
     if (view) return true;
@@ -40,32 +41,59 @@ static bool open_map() {
     return true;
 }
 
-static bool read(Command& out) {
+static bool read_command(Command& out) {
     if (!open_map()) return false;
-    std::memcpy(&out, view, sizeof(out));
-    if (out.magic != MAGIC || out.version != 1 || out.sequence == last_sequence) return false;
-    last_sequence = out.sequence;
+    Command snapshot{};
+    std::memcpy(&snapshot, view, sizeof(snapshot));
+    if (snapshot.magic != MAGIC || snapshot.version != 1) return false;
+    if (snapshot.sequence == last_sequence) return false;
+    out = snapshot;
+    last_sequence = snapshot.sequence;
     return true;
 }
 
-// Called from the plugin's existing frame_end/CCore::tick() path.
-// The exact placement_t member names must match the checked ETS2LA/plugin ABI.
+static void restore(prism::core_camera_u* camera) {
+    if (!camera || !saved) return;
+    camera->placement = saved_placement;
+    saved = false;
+}
+
 void tick() {
     Command c{};
-    if (!read(c) || !c.active) return;
+    if (!read_command(c)) return;
 
-    auto* manager = ets2la_plugin::prism::camera_manager_u::get();
+    auto* manager = prism::camera_manager_u::get();
     if (!manager) return;
     const uint32_t index = manager->current_camera;
     if (index >= manager->cameras.size()) return;
     auto* camera = manager->cameras[index];
     if (!camera) return;
 
-    // ABI verified for 1.60: core_camera_u::placement starts at 0x40.
-    // Copying the complete placement object is intentionally left behind the
-    // final member-name check because placement_t differs between platform builds.
-    // The target values are already in native coordinates and quaternion form.
-    (void)camera;
-    (void)c;
+    if (!c.active || c.target_vehicle_id < 0) {
+        restore(camera);
+        return;
+    }
+
+    if (!saved) {
+        saved_placement = camera->placement;
+        saved = true;
+    }
+
+    camera->placement.pos.x = c.position.x;
+    camera->placement.pos.y = c.position.y;
+    camera->placement.pos.z = c.position.z;
+    camera->placement.rot.w = c.rotation.w;
+    camera->placement.rot.x = c.rotation.x;
+    camera->placement.rot.y = c.rotation.y;
+    camera->placement.rot.z = c.rotation.z;
+
+    // cx/cz are the compact cell coordinates. Keep them unchanged because
+    // the controller already supplies world-space position for the camera.
+}
+
+void shutdown() {
+    if (view) { UnmapViewOfFile(view); view = nullptr; }
+    if (map) { CloseHandle(map); map = nullptr; }
+    saved = false;
 }
 }
