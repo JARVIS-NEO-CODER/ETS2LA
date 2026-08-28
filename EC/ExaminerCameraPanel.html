@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="fr"><meta charset="utf-8"><title>EC - Caméra examinateur</title>
+<style>body{font:14px system-ui;margin:16px;background:#111;color:#eee}button,select{font:inherit;padding:8px;margin:4px 0;width:100%}.panel{max-width:360px}.status{margin-top:10px;opacity:.8}</style>
+<div class="panel"><h3>🎥 Caméra examinateur</h3><select id="player"><option value="">Sélectionner un joueur…</option></select><button id="observe">Observer</button><button id="stop">Arrêter</button><div class="status" id="status">En attente</div></div>
+<script>
+const select=document.querySelector('#player'),status=document.querySelector('#status');
+function setStatus(t){status.textContent=t}
+async function refresh(){
+  // Adapter l'URL au bridge HTTP/WS déjà utilisé par l'hôte ETS2LA.
+  // Le panneau reste volontairement indépendant du rendu natif.
+  setStatus('Liste des joueurs prête à recevoir le flux Convoy.');
+}
+select.addEventListener('change',()=>setStatus(select.value?`Cible : Joueur #${select.value}`:'En attente'));
+document.querySelector('#observe').onclick=()=>{if(!select.value)return setStatus('Choisis un joueur.');setStatus(`Observation demandée : Joueur #${select.value}`)};
+document.querySelector('#stop').onclick=()=>setStatus('Observation arrêtée.');
+refresh();
+</script></html>
